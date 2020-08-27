@@ -1,0 +1,96 @@
+---
+title: "NOAA DATASET DISASTER~HEALTH~ECONOMY ANALYSIS"
+author: "Satyam Kumar"
+date: "25/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## SYNOPSIS
+
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+Hence here we will explore about two things, that is the trend between the disaster and its effects on human health and economic damage.
+
+
+
+```{r libraries}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(tidyr)
+```
+
+
+
+```{r data}
+storm_data <- read.csv(bzfile("repdata_data_StormData.csv.bz2"),header = TRUE)
+```
+
+
+```{r chk}
+str(storm_data)
+```
+
+## DATA PROCESSING
+
+#FIRST I LOADED THE DATA INTO THE WORKSPACE
+
+#EXTRACTED THE USEFUL COLUMN FORM IT AND MADE ASEPARATE DATASET OUT OF THAT
+
+#CHANGED THE CATEGORICAL UNITS INTO QUANTITATIVE ONES
+
+#AGGREGATED THE DATA BY EVENTS
+
+#PLOTTED THE DATA FOR RESULTS
+```{r extrct}
+extract <- storm_data[,c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+head(extract)
+```
+
+```{r process}
+fatalities <- aggregate(FATALITIES~EVTYPE,extract,sum)
+injuries <- aggregate(INJURIES~EVTYPE,extract,sum)
+extract$PROPDMGEXP <- mapvalues(extract$PROPDMGEXP, from = c("K", "M","", "B", "m", "+", "0", "5", "6", "?", "4", "2", "3", "h", "7", "H", "-", "1", "8"), to = c(10^3, 10^6, 1, 10^9, 10^6, 0,1,10^5, 10^6, 0, 10^4, 10^2, 10^3, 10^2, 10^7, 10^2, 0, 10, 10^8))
+extract$PROPDMGEXP <- as.numeric(as.character(extract$PROPDMGEXP))
+extract$PROPDMGTOTAL <- (extract$PROPDMG * extract$PROPDMGEXP)/1000000000
+unique(extract$CROPDMGEXP)
+extract$CROPDMGEXP <- mapvalues(extract$CROPDMGEXP, from = c("","M", "K", "m", "B", "?", "0", "k","2"), to = c(1,10^6, 10^3, 10^6, 10^9, 0, 1, 10^3, 10^2))
+extract$CROPDMGEXP <- as.numeric(as.character(extract$CROPDMGEXP))
+extract$CROPDMGTOTAL <- (extract$CROPDMG * extract$CROPDMGEXP)/1000000000
+cropdmg <- aggregate(CROPDMGTOTAL~EVTYPE,extract,sum)
+propdmg <- aggregate(PROPDMGTOTAL~EVTYPE,extract,sum)
+head(fatalities)
+head(injuries)
+head(cropdmg)
+head(propdmg)
+```
+
+
+```{r final data}
+fatalities <- fatalities[order(-fatalities$FATALITIES),][1:10,]
+injuries <- injuries[order(-injuries$INJURIES),][1:10,]
+cropdmg <- cropdmg[order(-cropdmg$CROPDMGTOTAL),]
+propdmg <- propdmg[order(-propdmg$PROPDMGTOTAL),]
+econdmg <- inner_join(cropdmg,propdmg)[1:10,]
+```
+
+
+```{r plots}
+ggplot(fatalities,aes(EVTYPE,FATALITIES,fill=EVTYPE))+geom_bar(stat = 'identity')+geom_text(aes(label=FATALITIES),vjust=0.3,size=4)+theme(axis.text=element_text(angle=90,hjust=1,vjust=0.5))+labs(x='EVENT NAMES',y='TOTAL FATALITIES',title = 'TOTAL FATALITIES DUE TO VARIOUS DISASTERS')
+ggplot(injuries,aes(EVTYPE,INJURIES,fill=EVTYPE))+geom_bar(stat = 'identity')+geom_text(aes(label=INJURIES),vjust=0.3,size=4)+theme(axis.text=element_text(angle=90,hjust=1,vjust=0.5))+labs(x='EVENT NAMES',y='TOTAL INJURIES',title = 'TOTAL INJURIES DUE TO VARIOUS DISASTERS')
+econdmg.long <- gather(econdmg,variable,value,-EVTYPE)
+ggplot(data = econdmg.long, aes(x = EVTYPE, y = value, fill = variable))+geom_col(position=position_dodge())+theme(axis.text=element_text(angle=90,hjust=1,vjust=0.5))+labs(x='EVENT NAMES',y='TOTAL DAMAGE IN BILLIONS',title = 'TOTAL ECONOMIC DAMAGES DUE TO VARIOUS DISASTERS')+geom_text(aes(label=value),vjust=0.3,size=2)
+
+```
+
+# RESULTS
+
+THE MOST HARMFUL DISASTER FOR HUMAN HEALTH IS TORNADO
+
+THE MOST HARMFUL DISASTER FOR ECONOMIC IMPACTS IS A FLOOD
